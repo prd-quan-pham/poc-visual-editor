@@ -369,36 +369,47 @@
         }
     });
 </script>
-        <script>
-  console.log('Iframe (POC): Script đã chạy!');
+<script>
+  // (Giả sử bạn đã có hàm getUniqueSelector)
 
-  // Lắng nghe click
-  document.addEventListener('click', (event) => {
-    // Ngăn hành vi mặc định (như click vào link)
+document.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
 
     const clickedElement = event.target;
-
-    // Tìm selector
-    let selector = null;
-    if (clickedElement.id) {
-      selector = '#' + clickedElement.id;
-    } else if (clickedElement.className && typeof clickedElement.className === 'string') {
-      selector = '.' + clickedElement.className.split(' ')[0];
-    } else {
-      selector = clickedElement.tagName.toLowerCase();
-    }
-
-    console.log('Iframe (POC): Đã click vào', selector);
-
-    // Gửi tin nhắn LÊN cho Parent (Nuxt App)
-    window.parent.postMessage({
-      type: 'element-clicked',
-      selector: selector,
-      tagName: clickedElement.tagName
-    }, '*'); // Trong production, thay '*' bằng domain của Nuxt
     
-  }, true);
+    const uniqueSelector = getUniqueSelector(clickedElement); 
+
+    console.log('Iframe (POC): Đã click, selector:', uniqueSelector);
+
+    window.parent.postMessage({
+        type: 'element-clicked',
+        selector: uniqueSelector,
+        tagName: clickedElement.tagName
+    }, '*');
+    
+}, true);
+
+function getUniqueSelector(el) {
+    if (!el || !(el instanceof Element)) return;
+    let path = [];
+    while (el.nodeType === Node.ELEMENT_NODE) {
+        let selector = el.nodeName.toLowerCase();
+        if (el.id) {
+            selector = '#' + el.id;
+            path.unshift(selector);
+            break;
+        } else {
+            let sib = el, nth = 1;
+            while (sib = sib.previousElementSibling) {
+                if (sib.nodeName.toLowerCase() == selector) nth++;
+            }
+            if (nth != 1) selector += `:nth-of-type(${nth})`;
+        }
+        path.unshift(selector);
+        el = el.parentNode;
+    }
+    return path.join(' > ');
+}
 </script>
 </body></html>
