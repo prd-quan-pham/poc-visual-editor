@@ -369,4 +369,36 @@
         }
     });
 </script>
+        <script>
+  console.log('Iframe (POC): Script đã chạy!');
+
+  // Lắng nghe click
+  document.addEventListener('click', (event) => {
+    // Ngăn hành vi mặc định (như click vào link)
+    event.preventDefault();
+    event.stopPropagation();
+
+    const clickedElement = event.target;
+
+    // Tìm selector
+    let selector = null;
+    if (clickedElement.id) {
+      selector = '#' + clickedElement.id;
+    } else if (clickedElement.className && typeof clickedElement.className === 'string') {
+      selector = '.' + clickedElement.className.split(' ')[0];
+    } else {
+      selector = clickedElement.tagName.toLowerCase();
+    }
+
+    console.log('Iframe (POC): Đã click vào', selector);
+
+    // Gửi tin nhắn LÊN cho Parent (Nuxt App)
+    window.parent.postMessage({
+      type: 'element-clicked',
+      selector: selector,
+      tagName: clickedElement.tagName
+    }, '*'); // Trong production, thay '*' bằng domain của Nuxt
+    
+  }, true);
+</script>
 </body></html>
