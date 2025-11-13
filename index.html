@@ -370,30 +370,72 @@
     });
 </script>
 <script>
-  // (Giả sử bạn đã có hàm getUniqueSelector)
+function onEditDone(event) {
+    const element = event.target;
+    
+    // Tắt chế độ sửa
+    element.contentEditable = false;
+    element.removeEventListener('keydown', onEditKeydown); // Dọn dẹp listener
+    
+    // Lấy text SẠCH (quan trọng)
+    const newText = element.innerText; // Dùng innerText để loại bỏ mọi HTML
+
+    console.log('Iframe: Sửa text xong, gửi "text-updated" lên Parent');
+    
+    // Gửi message MỚI lên Nuxt, báo rằng text ĐÃ được cập nhật
+    window.parent.postMessage({
+        type: 'text-updated',
+        selector: getUniqueSelector(element),
+        newText: newText 
+    }, '*');
+}
+
+// --- 2. HÀM HELPER ĐỂ BẮT PHÍM ENTER ---
+function onEditKeydown(event) {
+    // Khi bấm Enter (hoặc Escape), kết thúc sửa
+    if (event.key === 'Enter' || event.key === 'Escape') {
+        event.preventDefault();
+        event.target.blur(); // Tự động trigger sự kiện 'blur' (ở trên)
+    }
+}
 
 document.addEventListener('click', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const clickedElement = event.target;
     
-    const uniqueSelector = getUniqueSelector(clickedElement); 
-    const computedStyles = window.getComputedStyle(clickedElement);
-    console.log('Iframe (POC): Đã click, selector:', uniqueSelector);
-
-    window.parent.postMessage({
-        type: 'element-clicked',
-        selector: uniqueSelector,
-        tagName: clickedElement.tagName,
-        styles: {
-            color: computedStyles.color,
-            fontSize: computedStyles.fontSize,
-            backgroundColor: computedStyles.backgroundColor,
-            lineHeight: computedStyles.lineHeight,
-            ...computedStyles,
-        }
-    }, '*');
+    // --- LOGIC MỚI: SỬA TẠI CHỖ ---
+    
+    // (Dùng logic "X-Ray" elementsFromPoint để tìm đúng target, bỏ qua overlay)
+    const elements = document.elementsFromPoint(event.clientX, event.clientY) || [event.target];
+    const clickedElement = elements.find(el => 
+        ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'SPAN', 'A'].includes(el.tagName)
+    ); // Ưu tiên tìm text
+    
+    // A. NẾU CLICK VÀO TEXT
+    if (clickedElement) {
+        event.preventDefault();
+        event.stopPropagation();
+        
+        // Kích hoạt chế độ sửa TẠI CHỖ
+        // Dùng 'plaintext-only' để CHẶN paste HTML bẩn
+        clickedElement.contentEditable = 'plaintext-only'; 
+        clickedElement.focus(); // Đặt con trỏ vào
+        
+        // Tạm thời lắng nghe khi nào sửa xong
+        clickedElement.addEventListener('blur', onEditDone, { once: true });
+        clickedElement.addEventListener('keydown', onEditKeydown);
+    }
+    
+    // B. NẾU CLICK VÀO THỨ KHÁC (ví dụ: IMG)
+    else {
+        // (Logic cũ của bạn: Gửi message để mở Sidebar)
+        event.preventDefault();
+        event.stopPropagation();
+        
+        window.parent.postMessage({
+            type: 'element-clicked', // Message cũ
+            selector: getUniqueSelector(event.target),
+            styles: window.getComputedStyle(event.target) // (Để sửa style/image)
+        }, '*');
+    }
     
 }, true);
     
