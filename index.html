@@ -379,16 +379,24 @@ document.addEventListener('click', (event) => {
     const clickedElement = event.target;
     
     const uniqueSelector = getUniqueSelector(clickedElement); 
-
+    const computedStyles = window.getComputedStyle(clickedElement);
     console.log('Iframe (POC): Đã click, selector:', uniqueSelector);
 
     window.parent.postMessage({
         type: 'element-clicked',
         selector: uniqueSelector,
-        tagName: clickedElement.tagName
+        tagName: clickedElement.tagName,
+        styles: {
+            color: computedStyles.color,
+            fontSize: computedStyles.fontSize,
+            backgroundColor: computedStyles.backgroundColor,
+            lineHeight: computedStyles.lineHeight,
+            ...computedStyles,
+        }
     }, '*');
     
 }, true);
+    
 
 function getUniqueSelector(el) {
     if (!el || !(el instanceof Element)) return;
