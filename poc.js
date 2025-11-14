@@ -44,6 +44,10 @@ function onEditKeydown(event) {
     }
 }
 
+document.addEventListener('DOMContentLoaded', () => {
+        window.parent.postMessage({ type: 'iframe-ready-for-rules' }, '*');
+});
+
 // --- HÀM 3: LISTENER CLICK CHÍNH (ROUTER) ---
 document.addEventListener('click', (event) => {
 
@@ -140,5 +144,31 @@ window.addEventListener('message', (event) => {
             });
         }
     }
+
+    if (data.type === 'init-drag-rules') {
+            console.log('Iframe: Đã nhận Luật D&D', data.rules);
+            
+            data.rules.forEach(rule => {
+                if (rule.type === 'container') {
+                    const containerEl = document.querySelector(rule.selector);
+                    if (containerEl) {
+                        console.log('Iframe: Kích hoạt D&D cho', containerEl);
+                        new Sortable(containerEl, {
+                            ...rule.config, // Áp dụng "Luật" từ Nuxt
+                            animation: 150,
+                            onEnd: function (evt) {
+                                // Báo cáo (như POC)
+                                window.parent.postMessage({
+                                    type: 'element-dragged',
+                                    movedSelector: getUniqueSelector(evt.item),
+                                    parentSelector: getUniqueSelector(evt.to),
+                                    newIndex: evt.newIndex
+                                }, '*');
+                            }
+                        });
+                    }
+                }
+            });
+        }
 });
 
