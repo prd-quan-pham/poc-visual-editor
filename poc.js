@@ -45,37 +45,25 @@ function onEditKeydown(event) {
 }
 
 // --- HÀM 3: KHỞI TẠO (DOM READY) ---
+// --- HÀM 3 (ĐÃ NÂNG CẤP): KHỞI TẠO 2 CẤP ĐỘ ---
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('Iframe: DOM Sẵn sàng. Tự động khởi tạo D&D...');
-
-    // "LUẬT" ĐƯỢC ĐỊNH NGHĨA NGAY TẠI ĐÂY
-    // Iframe tự tìm tất cả các "container"
+    console.log('Iframe: DOM Sẵn sàng. Khởi tạo D&D...');
+    
+    // --- LOGIC CẤP 1: KÉO THẢ "BLOCK" (BÊN TRONG CONTAINER) ---
     const containers = document.querySelectorAll('[data-component="container"]');
-
     containers.forEach(container => {
-        // Lấy "Luật" từ chính container đó
         const accepts = container.getAttribute('data-accepts')?.split(',') || [];
-
-        console.log('Iframe: Kích hoạt D&D cho', container, 'chấp nhận:', accepts);
-
+        console.log('Iframe: Kích hoạt Cấp 1 (Blocks) cho', container);
+        
         new Sortable(container, {
-            // Định nghĩa "nhóm" (group)
             group: {
-                name: 'shared-group', // Tất cả dùng chung 1 nhóm
-                // Logic "PUT" (Thả vào)
-                put: function (to, from, dragEl) {
-                    const dragType = dragEl.getAttribute('data-type');
-                    // Chỉ cho phép thả nếu data-type nằm trong danh sách "accepts"
-                    return accepts.includes(dragType);
-                }
+                name: 'shared-blocks', // Nhóm cho các "Blocks"
+                put: (to, from, dragEl) => accepts.includes(dragEl.getAttribute('data-type')),
             },
+            draggable: '[data-component="block"]', // Chỉ kéo block
             animation: 150,
-            // Chỉ định chính xác CÁI GÌ được phép kéo
-            draggable: '[data-component="block"]',
-
-            // Khi thả xong
-            onEnd: function (evt) {
-                console.log('Iframe: Kéo xong, báo cáo cho Nuxt');
+            onEnd: (evt) => {
+                console.log('Iframe: Kéo xong (Block), báo cáo Nuxt');
                 window.parent.postMessage({
                     type: 'element-dragged',
                     movedSelector: getUniqueSelector(evt.item),
@@ -85,8 +73,28 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
-});
 
+    // --- LOGIC CẤP 2 (MỚI): KÉO THẢ "SECTION" (BÊN NGOÀI) ---
+    const pageBodies = document.querySelectorAll('[data-component="page-body"]');
+    pageBodies.forEach(body => {
+        console.log('Iframe: Kích hoạt Cấp 2 (Sections) cho', body);
+        
+        new Sortable(body, {
+            group: 'sections', // Nhóm riêng cho các "Sections"
+            draggable: '[data-component="section"]', // Chỉ kéo section
+            animation: 150,
+            onEnd: (evt) => {
+                console.log('Iframe: Kéo xong (Section), báo cáo Nuxt');
+                window.parent.postMessage({
+                    type: 'element-dragged', // Dùng chung 1 message type
+                    movedSelector: getUniqueSelector(evt.item),
+                    parentSelector: getUniqueSelector(evt.to),
+                    newIndex: evt.newIndex
+                }, '*');
+            }
+        });
+    });
+});
 // --- HÀM 4: LISTENER 'MOUSEDOWN' (ĐỂ KÉO) ---
 // (Giữ nguyên y hệt như code trước)
 document.addEventListener('mousedown', (event) => {
