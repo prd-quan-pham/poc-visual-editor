@@ -44,74 +44,104 @@ function onEditKeydown(event) {
     }
 }
 
+// --- HÀM 3: KHỞI TẠO SORTABLE THEO "LUẬT" ---
+function initSortable(ruleset) {
+    console.log('Iframe: Đã nhận Luật, khởi tạo SortableJS...', ruleset);
+
+    ruleset.forEach(rule => {
+        if (rule.type === 'container') {
+            const containerEl = document.querySelector(rule.selector);
+            if (containerEl) {
+                console.log('Iframe: Kích hoạt D&D cho', containerEl);
+                new Sortable(containerEl, {
+                    // Áp dụng "Luật" từ Nuxt
+                    group: rule.config.group,
+                    animation: 150,
+                    // Quan trọng: Chỉ định các item con có thể kéo
+                    draggable: '[data-component="block"]',
+
+                    onEnd: function (evt) {
+                        console.log('Iframe: Kéo xong, báo cáo cho Nuxt');
+                        window.parent.postMessage({
+                            type: 'element-dragged',
+                            movedSelector: getUniqueSelector(evt.item),
+                            parentSelector: getUniqueSelector(evt.to),
+                            newIndex: evt.newIndex
+                        }, '*');
+                    }
+                });
+            }
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-        window.parent.postMessage({ type: 'iframe-ready-for-rules' }, '*');
+    window.parent.postMessage({ type: 'iframe-ready-for-rules' }, '*');
 });
 
-// --- HÀM 3: LISTENER CLICK CHÍNH (ROUTER) ---
-document.addEventListener('click', (event) => {
+// --- HÀM 5: LISTENER MỚI CHO 'MOUSEDOWN' (ĐỂ KÉO) ---
+document.addEventListener('mousedown', (event) => {
+    // Nếu giữ Ctrl/Cmd (mở modal), không làm gì cả
+    if (event.ctrlKey || event.metaKey) { return; }
 
-    // --- CHẾ ĐỘ KÉO THẢ (ALT+CLICK) ---
-    if (event.altKey) {
+    // Kiểm tra xem có phải click vào "Block" (thứ có thể kéo)
+    const draggableBlock = event.target.closest('[data-component="block"]');
+
+    if (draggableBlock) {
+        console.log('Iframe: Mousedown trên block, cho phép SortableJS chạy.');
+        // KHÔNG preventDefault()
+        // Chỉ cần ngăn "click" (ở dưới) chạy
+        event.stopPropagation();
+        return;
+    }
+
+    // Nếu click vào thứ khác (không phải block, không phải Ctrl)
+    // thì mới chặn mousedown để chuẩn bị sửa text/ảnh
+    event.preventDefault();
+
+}, true);
+
+document.addEventListener('click', (event) => {
+        // Nếu giữ Ctrl/Cmd (đã xử lý ở mousedown, nhưng check lại)
+        if (event.ctrlKey || event.metaKey) { return; }
+
+        // Nếu là 'click' trên 'block' (tức là sau khi kéo xong)
+        // thì ta phải chặn nó lại, không cho sửa text
+        if (event.target.closest('[data-component="block"]')) {
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+        }
+
+        // Nếu click bình thường (không phải kéo, không phải Ctrl)
         event.preventDefault();
         event.stopPropagation();
-        let targetBlock = event.target;
-        // "Leo cây" tìm "khối" (bất cứ thứ gì không phải text inline)
-        while (targetBlock.parentElement && ['P', 'H1', 'H2', 'H3', 'SPAN', 'A', 'IMG', 'STRONG', 'EM', 'B', 'I'].includes(targetBlock.tagName)) {
-            targetBlock = targetBlock.parentElement;
+        
+        // --- CHẾ ĐỘ SỬA TEXT (CLICK VÀO TEXT) ---
+        // (Logic 'elementsFromPoint' và 'contenteditable' như cũ...)
+        const elements = document.elementsFromPoint(event.clientX, event.clientY) || [event.target];
+        const textElement = elements.find(el => ['P', 'H1', 'H2', 'H3', 'A'].includes(el.tagName));
+        
+        if (textElement) {
+             console.log('Iframe: Chế độ Sửa Text', textElement);
+             textElement.contentEditable = 'plaintext-only';
+             textElement.focus();
+             textElement.addEventListener('blur', onEditDone, { once: true });
+             textElement.addEventListener('keydown', onEditKeydown);
+             return;
         }
-        console.log('Iframe: Chế độ Structure, đã chọn block:', targetBlock);
+        
+        // --- CHẾ ĐỘ SỬA ELEMENT (ẢNH, LINK...) ---
+        const targetElement = elements[0];
+        console.log('Iframe: Chế độ Sửa Element', targetElement);
         window.parent.postMessage({
-            type: 'block-selected',
-            selector: getUniqueSelector(targetBlock)
+            type: 'element-clicked',
+            selector: getUniqueSelector(targetElement),
+            tagName: targetElement.tagName,
         }, '*');
-        return;
-    }
 
-    // --- CHẾ ĐỘ TƯƠNG TÁC (CTRL+CLICK) ---
-    if (event.ctrlKey || event.metaKey) {
-        console.log('Iframe: Chế độ Interact, cho phép sự kiện mặc định.');
-        return; // Không làm gì, cho phép modal mở
-    }
-
-    // Ngăn chặn tất cả các hành vi khác
-    event.preventDefault();
-    event.stopPropagation();
-
-    // --- TÌM TARGET (X-RAY VISION) ---
-    const elements = document.elementsFromPoint(event.clientX, event.clientY) || [event.target];
-
-    // 1. Ưu tiên tìm TEXT
-    const textElement = elements.find(el =>
-        ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'SPAN', 'A'].includes(el.tagName)
-    );
-
-    // 2. Ưu tiên tìm ẢNH
-    const imageElement = elements.find(el => el.tagName === 'IMG');
-
-    // --- CHẾ ĐỘ SỬA TEXT (CLICK VÀO TEXT) ---
-    if (textElement && !imageElement) { // Ưu tiên text (trừ khi nó nằm trên ảnh)
-        console.log('Iframe: Chế độ Sửa Text', textElement);
-        textElement.contentEditable = 'plaintext-only';
-        textElement.focus();
-        textElement.addEventListener('blur', onEditDone, { once: true });
-        textElement.addEventListener('keydown', onEditKeydown);
-        return;
-    }
-
-    // --- CHẾ ĐỘ SỬA ELEMENT (ẢNH, LINK...) ---
-    // (Hoặc bất cứ thứ gì không phải text)
-    const targetElement = elements[0]; // Lấy phần tử trên cùng
-    console.log('Iframe: Chế độ Sửa Element', targetElement);
-    window.parent.postMessage({
-        type: 'element-clicked',
-        selector: getUniqueSelector(targetElement),
-        tagName: targetElement.tagName,
-        styles: {} // (Tạm thời k gửi style để tập trung vào img/link)
-    }, '*');
-
-}, true); // Dùng Capture Phase
-
+    }, true);
+    
 // --- HÀM 4: LISTENER NHẬN LỆNH TỪ NUXT ---
 window.addEventListener('message', (event) => {
     // (Kiểm tra origin...)
@@ -146,29 +176,29 @@ window.addEventListener('message', (event) => {
     }
 
     if (data.type === 'init-drag-rules') {
-            console.log('Iframe: Đã nhận Luật D&D', data.rules);
-            
-            data.rules.forEach(rule => {
-                if (rule.type === 'container') {
-                    const containerEl = document.querySelector(rule.selector);
-                    if (containerEl) {
-                        console.log('Iframe: Kích hoạt D&D cho', containerEl);
-                        new Sortable(containerEl, {
-                            ...rule.config, // Áp dụng "Luật" từ Nuxt
-                            animation: 150,
-                            onEnd: function (evt) {
-                                // Báo cáo (như POC)
-                                window.parent.postMessage({
-                                    type: 'element-dragged',
-                                    movedSelector: getUniqueSelector(evt.item),
-                                    parentSelector: getUniqueSelector(evt.to),
-                                    newIndex: evt.newIndex
-                                }, '*');
-                            }
-                        });
-                    }
+        console.log('Iframe: Đã nhận Luật D&D', data.rules);
+
+        data.rules.forEach(rule => {
+            if (rule.type === 'container') {
+                const containerEl = document.querySelector(rule.selector);
+                if (containerEl) {
+                    console.log('Iframe: Kích hoạt D&D cho', containerEl);
+                    new Sortable(containerEl, {
+                        ...rule.config, // Áp dụng "Luật" từ Nuxt
+                        animation: 150,
+                        onEnd: function (evt) {
+                            // Báo cáo (như POC)
+                            window.parent.postMessage({
+                                type: 'element-dragged',
+                                movedSelector: getUniqueSelector(evt.item),
+                                parentSelector: getUniqueSelector(evt.to),
+                                newIndex: evt.newIndex
+                            }, '*');
+                        }
+                    });
                 }
-            });
-        }
+            }
+        });
+    }
 });
 
