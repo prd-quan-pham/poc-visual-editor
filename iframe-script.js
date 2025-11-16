@@ -43,42 +43,47 @@ function onEditKeydown(event) {
     }
 }
 
-// --- HÀM 3: KHỞI TẠO SORTABLE THEO "LUẬT" (CẬP NHẬT) ---
+// --- HÀM 3: KHỞI TẠO SORTABLE THEO "LUẬT" (TỪ NUXT) ---
 function initSortable(ruleset) {
     console.log('Iframe: Đã nhận Luật, khởi tạo SortableJS...', ruleset);
-
+    
     ruleset.forEach(rule => {
-        const containerEl = document.querySelector(rule.selector);
-        if (containerEl) {
-            console.log('Iframe: Kích hoạt D&D cho', containerEl, rule.config);
+        // Dùng querySelectorAll để tìm TẤT CẢ các container khớp
+        const containerElements = document.querySelectorAll(rule.selector);
 
-            const config = rule.config;
+        if (containerElements.length > 0) {
+            containerElements.forEach(containerEl => {
+                console.log('Iframe: Kích hoạt D&D cho', containerEl, rule.config);
+                
+                const config = rule.config;
 
-            new Sortable(containerEl, {
-                group: {
-                    name: config.groupName,
-                    put: function (to, from, dragEl) {
-                        const dragType = dragEl.getAttribute('data-type');
-                        // "accepts" là mảng ['card', 'block'] từ Nuxt
-                        return config.accepts.includes(dragType);
+                new Sortable(containerEl, {
+                    group: {
+                        name: config.groupName,
+                        // Quan trọng: Hàm 'put' này sẽ chạy logic "Luật"
+                        put: function (to, from, dragEl) {
+                            const dragType = dragEl.getAttribute('data-type');
+                            // "accepts" là mảng ['card', 'block'] từ Nuxt
+                            return config.accepts.includes(dragType);
+                        }
+                    },
+                    handle: config.handle, // !!! DÙNG TAY NẮM
+                    draggable: config.draggable, // !!! CHỈ KÉO CÁC ITEM NÀY
+                    animation: 150,
+                    
+                    onEnd: function (evt) {
+                        console.log('Iframe: Kéo xong, báo cáo cho Nuxt');
+                        window.parent.postMessage({
+                            type: 'element-dragged',
+                            movedSelector: getUniqueSelector(evt.item),
+                            parentSelector: getUniqueSelector(evt.to),
+                            newIndex: evt.newIndex
+                        }, '*');
                     }
-                },
-                handle: config.handle, // !!! DÙNG TAY NẮM
-                draggable: config.draggable, // !!! CHỈ KÉO CÁC ITEM NÀY
-                animation: 150,
-
-                onEnd: function (evt) {
-                    console.log('Iframe: Kéo xong, báo cáo cho Nuxt');
-                    window.parent.postMessage({
-                        type: 'element-dragged',
-                        movedSelector: getUniqueSelector(evt.item),
-                        parentSelector: getUniqueSelector(evt.to),
-                        newIndex: evt.newIndex
-                    }, '*');
-                }
+                });
             });
         } else {
-            console.warn('Iframe: Không tìm thấy container selector:', rule.selector);
+             console.warn('Iframe: Không tìm thấy container selector:', rule.selector);
         }
     });
 }
