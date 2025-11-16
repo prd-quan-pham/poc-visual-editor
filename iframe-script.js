@@ -156,6 +156,14 @@ window.addEventListener('message', (event) => {
     // (Kiểm tra origin...)
     const data = event.data;
 
+    // --- LOGIC MỚI: NHẬN "PING" TỪ PARENT ---
+    if (data.type === 'parent-ready') {
+        console.log('Iframe: Nhận được "PING" từ Parent, gửi "PONG" (ready-for-rules) LÊN.');
+        
+        // Gửi "PONG" (tin nhắn CŨ của bạn) LÊN
+        window.parent.postMessage({ type: 'iframe-ready-for-rules' }, '*');
+    }
+
     // --- NHẬN VÀ KÍCH HOẠT D&D ---
     if (data.type === 'init-drag-rules') {
         initSortable(data.rules); // Gọi hàm khởi tạo D&D
