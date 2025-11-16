@@ -91,6 +91,7 @@ function initSortable(ruleset) {
 // --- HÀM 4: KHỞI TẠO (DOM READY) ---
 document.addEventListener('DOMContentLoaded', () => {
     // Báo cáo "Sẵn sàng" để "xin" Luật
+    console.log('check DOMContentLoaded')
     window.parent.postMessage({ type: 'iframe-ready-for-rules' }, '*');
 });
 
