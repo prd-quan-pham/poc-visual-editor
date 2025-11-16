@@ -1,3 +1,5 @@
+console.log('cuu toi voi')
+
 
 // --- HÀM 1: GET SELECTOR (GIỮ NGUYÊN) ---
 function getUniqueSelector(el) {
