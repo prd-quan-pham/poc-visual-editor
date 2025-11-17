@@ -1,66 +1,272 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta name="robots" content="noindex, nofollow">
-    <meta charset="utf-8">
-    <meta content="yes" name="apple-mobile-web-app-capable">
-    <meta http-equiv="Content-Script-Type" content="text/javascript">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-    <meta property="og:type" content="website">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TEST POC</title>
-    <link rel="stylesheet" href="https://use.typekit.net/ihh8hqx.css" />
-    <link rel="stylesheet" crossorigin href="all.css" />
-    <link rel="stylesheet" crossorigin href="style.css" />
-    <link rel="stylesheet" crossorigin href="job-list.css" />
-    <link rel="stylesheet" crossorigin href="vendor.css" />
+    <title>Trang POC cho Visual Editor</title>
+    
+    <style>
+        /* Ẩn tất cả tay nắm theo mặc định */
+        .handle-block, .handle-section {
+            opacity: 0;
+            transition: opacity 0.15s ease-in-out;
+            cursor: grab;
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            z-index: 10;
+        }
+        
+        /* Khi hover vào Block, hiện tay nắm Block */
+        [data-component="block"]:hover > .handle-block {
+            opacity: 1;
+        }
+        
+        /* Khi hover vào Section, hiện tay nắm Section */
+        [data-type="section"]:hover > .handle-section {
+            opacity: 1;
+        }
+
+        /* Thêm style cho icon (từ code bạn đã gửi) */
+        .handle-block svg {
+            display: block;
+        }
+    </style>
 </head>
-
 <body>
-    <main data-component="container" data-accepts="section" data-type="main">
-        <section data-component="container" data-accepts="card" data-type="section"
-            style="padding: 10px; border: 2px dashed blue; margin: 10px;">
-            <h2>Section 1 FU (Chỉ chấp nhận Card)</h2>
 
-            <div data-component="block" data-type="card" style="padding: 10px; border: 1px solid #ccc; margin: 5px;">
-                <p>Card 1 - Click sửa text</p>
-                <img src="https://helpx.adobe.com/content/dam/help/en/photoshop/using/convert-color-image-black-white/jcr_content/main-pars/before_and_after/image-before/Landscape-Color.jpg" alt="placeholder">
-            </div>
-            <div data-component="block" data-type="card" style="padding: 10px; border: 1px solid #ccc; margin: 5px;">
-                <p>Card 2 - Click sửa text</p>
-                <a href="#">Sửa link này</a>
-            </div>
-        </section>
+    <section data-component="container" data-accepts="card" data-type="section" style="position: relative; padding: 10px; border: 2px dashed blue; margin: 10px;">
+        <h2>Section 1 (Chỉ chấp nhận Card)</h2>
+        
+        <div data-component="block" data-type="card" style="position: relative; padding: 10px; border: 1px solid #ccc; margin: 5px;">
+            <p>Card 1 - Click sửa text</p>
+            <img src="https://via.placeholder.com/100" alt="placeholder">
+        </div>
+        <div data-component="block" data-type="card" style="position: relative; padding: 10px; border: 1px solid #ccc; margin: 5px;">
+            <p>Card 2 - Click sửa text</p>
+            <a href="#">Sửa link này</a>
+        </div>
+    </section>
+    
+    <section data-component="container" data-accepts="block,hero" data-type="section" style="position: relative; padding: 10px; border: 2px dashed green; margin: 10px;">
+        <h2>Section 2 (Chấp nhận Block)</h2>
+        
+        <div data-component="block" data-type="block" style="position: relative; padding: 10px; border: 1px solid #ccc; margin: 5px;">
+            <p>Block chung</p>
+        </div>
+    </section>
 
-        <section data-component="container" data-accepts="block,hero" data-type="section"
-            style="padding: 10px; border: 2px dashed green; margin: 10px;">
-            <h2>Section 2 (Chấp nhận Block)</h2>
 
-            <div data-component="block" data-type="block" style="padding: 10px; border: 1px solid #ccc; margin: 5px;">
-                <p>Block chung</p>
-            </div>
-        </section>
-    </main>
-    <script src="https://cdn.sites.paradox.ai/common-libraries/jquery/jquery-3.7.1.min.js"
-        type="text/javascript"></script>
-    <script src="https://cdn.sites.paradox.ai/common-libraries/embla-carousel/embla-carousel.umd.js"
-        type="text/javascript"></script>
-    <script src="https://cdn.sites.paradox.ai/common-libraries/embla-carousel/embla-carousel-autoplay.umd.js"
-        type="text/javascript"></script>
-    <script
-        src="https://cdn.sites.paradox.ai/common-libraries/embla-carousel/embla-carousel-auto-scroll.umd.js"></script>
-    <script src="https://cdn.sites.paradox.ai/common-libraries/gsap/gsap.min.js" type="text/javascript"></script>
-    <script src="https://cdn.sites.paradox.ai/common-libraries/gsap/CustomEase.min.js" type="text/javascript"></script>
-    <script src="https://cdn.sites.paradox.ai/common-libraries/gsap/ScrollTrigger.min.js"
-        type="text/javascript"></script>
-    <script src="https://cdn.sites.paradox.ai/common-libraries/gsap/TextPlugin.min.js" type="text/javascript"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
-    <script type="module" crossorigin src="all.js"></script>
-    <script type="module" crossorigin src="animation.js"></script>
-    <script type="module" crossorigin src="carousel.js"></script>
-    <script type="module" crossorigin src="index.js"></script>
-    <script type="module" crossorigin src="iframe-script.js"></script>
-</body>
 
+    <script>
+        // --- HÀM 1: LẤY SELECTOR DUY NHẤT ---
+        function getUniqueSelector(el) {
+            if (!el || !(el instanceof Element)) return;
+            let path = [];
+            while (el.nodeType === Node.ELEMENT_NODE) {
+                let selector = el.nodeName.toLowerCase();
+                if (el.id) {
+                    selector = '#' + el.id;
+                    path.unshift(selector);
+                    break; // ID là duy nhất, dừng lại
+                } else {
+                    let sib = el, nth = 1;
+                    while (sib = sib.previousElementSibling) {
+                        if (sib.nodeName.toLowerCase() == selector) nth++;
+                    }
+                    if (nth != 1) selector += `:nth-of-type(${nth})`;
+                }
+                path.unshift(selector);
+                el = el.parentNode;
+            }
+            return path.join(' > ');
+        }
+
+        // --- HÀM 2: CÁC HELPER CHO CONTENTEDITABLE (SỬA TEXT TẠI CHỖ) ---
+        function onEditDone(event) {
+            const element = event.target;
+            element.contentEditable = false;
+            element.removeEventListener('keydown', onEditKeydown);
+            element.removeEventListener('blur', onEditDone); // Dọn dẹp listener
+            const newText = element.innerText; // Lấy text SẠCH
+            window.parent.postMessage({
+                type: 'text-updated',
+                selector: getUniqueSelector(element),
+                newText: newText 
+            }, '*');
+        }
+
+        function onEditKeydown(event) {
+            if (event.key === 'Enter' || event.key === 'Escape') {
+                event.preventDefault();
+                event.target.blur(); // Trigger 'blur'
+            }
+        }
+        
+        // --- HÀM 3: KHỞI TẠO SORTABLE THEO "LUẬT" (TỪ NUXT) ---
+        
+        // (Định nghĩa các icon "Tay nắm" (handle) bằng string)
+        const handleBlockSVG = `
+            <div class="handle-block">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="2.5" cy="2.5" r="1.5" fill="#666"/>
+                <circle cx="9.5" cy="2.5" r="1.5" fill="#666"/>
+                <circle cx="2.5" cy="6" r="1.5" fill="#666"/>
+                <circle cx="9.5" cy="6" r="1.5" fill="#666"/>
+                <circle cx="2.5" cy="9.5" r="1.5" fill="#666"/>
+                <circle cx="9.5" cy="9.5" r="1.5" fill="#666"/>
+              </svg>
+            </div>
+        `;
+        const handleSectionSVG = `
+            <div class="handle-section">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 3H3V5H5V3ZM11 3H9V5H11V3ZM5 7H3V9H5V7ZM11 7H9V9H11V7Z" fill="#666"/></svg>
+            </div>
+        `;
+
+        function initSortable(ruleset) {
+            console.log('Iframe: Đã nhận Luật, khởi tạo SortableJS...', ruleset);
+            
+            // --- 3a. TỰ ĐỘNG "TIÊM" TAY NẮM (HANDLES) ---
+            ruleset.forEach(rule => {
+                const containers = document.querySelectorAll(rule.selector);
+                containers.forEach(containerEl => {
+                    const config = rule.config;
+                    // Tìm TẤT CẢ các item con có thể kéo được
+                    const draggables = containerEl.querySelectorAll(config.draggable);
+                    
+                    draggables.forEach(draggableEl => {
+                        // "Tiêm" tay nắm vào (nếu chưa có)
+                        if (!draggableEl.querySelector(config.handle)) {
+                            if (config.handle === '.handle-block') {
+                                draggableEl.insertAdjacentHTML('afterbegin', handleBlockSVG);
+                            } 
+                            else if (config.handle === '.handle-section') {
+                                draggableEl.insertAdjacentHTML('afterbegin', handleSectionSVG);
+                            }
+                        }
+                    });
+                });
+            });
+
+            // --- 3b. KHỞI TẠO SORTABLEJS (SAU KHI ĐÃ TIÊM TAY NẮM) ---
+            ruleset.forEach(rule => {
+                const containerElements = document.querySelectorAll(rule.selector);
+                
+                if (containerElements.length > 0) {
+                    containerElements.forEach(containerEl => {
+                        console.log('Iframe: Kích hoạt D&D cho', containerEl, rule.config);
+                        const config = rule.config;
+                        new Sortable(containerEl, {
+                            group: {
+                                name: config.groupName,
+                                put: function (to, from, dragEl) {
+                                    const dragType = dragEl.getAttribute('data-type');
+                                    return config.accepts.includes(dragType);
+                                }
+                            },
+                            handle: config.handle,
+                            draggable: config.draggable,
+                            animation: 150,
+                            
+                            onEnd: function (evt) {
+                                console.log('Iframe: Kéo xong, báo cáo cho Nuxt');
+                                window.parent.postMessage({
+                                    type: 'element-dragged',
+                                    movedSelector: getUniqueSelector(evt.item),
+                                    parentSelector: getUniqueSelector(evt.to),
+                                    newIndex: evt.newIndex
+                                }, '*');
+                            }
+                        });
+                    });
+                } else {
+                    console.warn('Iframe: Không tìm thấy container selector:', rule.selector);
+                }
+            });
+        }
+
+        // --- HÀM 4: LISTENER 'CLICK' (ĐƠN GIẢN HÓA) ---
+        document.addEventListener('click', (event) => {
+            
+            // --- CHẾ ĐỘ TƯƠNG TÁC (CTRL+CLICK) ---
+            if (event.ctrlKey || event.metaKey) {
+                console.log('Iframe: Chế độ Interact, cho phép sự kiện.');
+                return; // Không làm gì, cho phép modal mở
+            }
+
+            // --- BỎ QUA NẾU CLICK VÀO TAY NẮM (HANDLE) ---
+            if (event.target.closest('.handle-block, .handle-section')) {
+                console.log('Iframe: Click vào Handle, bỏ qua.');
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+            }
+            
+            // Ngăn chặn tất cả các hành vi khác
+            event.preventDefault();
+            event.stopPropagation();
+
+            // --- TÌM TARGET (X-RAY VISION) ---
+            const elements = document.elementsFromPoint(event.clientX, event.clientY) || [event.target];
+            
+            // 1. Ưu tiên tìm TEXT
+            const textElement = elements.find(el => 
+                ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'SPAN', 'A'].includes(el.tagName)
+            );
+            
+            // 2. Ưu tiên tìm ẢNH
+            const imageElement = elements.find(el => el.tagName === 'IMG');
+            
+            // --- CHẾ ĐỘ SỬA TEXT (CLICK VÀO TEXT) ---
+            if (textElement) {
+                console.log('Iframe: Chế độ Sửa Text', textElement);
+                textElement.contentEditable = 'plaintext-only';
+                textElement.focus();
+                textElement.addEventListener('blur', onEditDone, { once: true });
+                textElement.addEventListener('keydown', onEditKeydown);
+                return;
+            }
+            
+            // --- CHẾ ĐỘ SỬA ELEMENT (ẢNH, LINK...) ---
+            const targetElement = imageElement || elements[0]; // Ưu tiên ảnh nếu tìm thấy
+            console.log('Iframe: Chế độ Sửa Element', targetElement);
+            window.parent.postMessage({
+                type: 'element-clicked',
+                selector: getUniqueSelector(targetElement),
+                tagName: targetElement.tagName,
+            }, '*');
+
+        }, true); // Dùng Capture Phase
+
+        // --- HÀM 5: LISTENER NHẬN LỆNH TỪ NUXT ---
+        window.addEventListener('message', (event) => {
+            // (Sau này bạn NÊN kiểm tra event.origin)
+            
+            const data = event.data;
+
+            // --- NHẬN "PING" (SẴN SÀNG) TỪ PARENT ---
+            if (data.type === 'parent-ready') {
+                console.log('Iframe: Nhận được "PING" từ Parent, gửi "PONG" (ready-for-rules) LÊN.');
+                // Gửi "PONG" (tin nhắn CŨ của bạn) LÊN
+                window.parent.postMessage({ type: 'iframe-ready-for-rules' }, '*');
+            }
+
+            // --- NHẬN VÀ KÍCH HOẠT D&D ---
+            if (data.type === 'init-drag-rules') {
+                initSortable(data.rules); // Gọi hàm khởi tạo D&D
+            }
+            
+            // --- NHẬN LỆNH LIVE-PREVIEW STYLE ---
+            if (data.type === 'apply-live-style') {
+                const el = document.querySelector(data.selector);
+                if (el) {
+                    el.style[data.style.property] = data.style.value;
+                }
+            }
+        });
+    </script>
+
+</body>
 </html>
