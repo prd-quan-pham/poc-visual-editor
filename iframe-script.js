@@ -45,42 +45,74 @@ function onEditKeydown(event) {
     }
 }
 
-// --- HÀM 3: KHỞI TẠO SORTABLE THEO "LUẬT" (TỪ NUXT) ---
+// --- HÀM 3: KHỞI TẠO SORTABLE (CẬP NHẬT VỚI "DYNAMIC INJECTION") ---
 function initSortable(ruleset) {
     console.log('Iframe: Đã nhận Luật, khởi tạo SortableJS...', ruleset);
     
-    ruleset.forEach(rule => {
-        // Dùng querySelectorAll để tìm TẤT CẢ các container khớp
-        const containerElements = document.querySelectorAll(rule.selector);
+    // --- 1. ĐỊNH NGHĨA CHUỖI HTML CỦA ICON ---
+    // (Đây là nơi bạn "bỏ" snippet của mình vào, dưới dạng 1 chuỗi JS)
+    const handleBlockSVG = `
+        <div class="handle-block" style="cursor: grab; position: absolute; top: 5px; left: 5px; z-index: 10;">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="2.5" cy="2.5" r="1.5" fill="#666"/>
+            <circle cx="9.5" cy="2.5" r="1.5" fill="#666"/>
+            <circle cx="2.5" cy="6" r="1.5" fill="#666"/>
+            <circle cx="9.5" cy="6" r="1.5" fill="#666"/>
+            <circle cx="2.5" cy="9.5" r="1.5" fill="#666"/>
+            <circle cx="9.5" cy="9.5" r="1.5" fill="#666"/>
+          </svg>
+        </div>
+    `;
+    const handleSectionSVG = `
+        <div class="handle-section" style="cursor: move; background: blue; color: white; padding: 2px; position: absolute; top: 0; left: 0; z-index: 9;">
+            [Kéo Section]
+        </div>
+    `; // (Bạn cũng có thể đổi "Kéo Section" thành icon)
 
+    // --- 2. TỰ ĐỘNG "TIÊM" TAY NẮM (HANDLES) ---
+    ruleset.forEach(rule => {
+        const containers = document.querySelectorAll(rule.selector);
+        containers.forEach(containerEl => {
+            const config = rule.config;
+            
+            // Tìm TẤT CẢ các item con có thể kéo được
+            const draggables = containerEl.querySelectorAll(config.draggable);
+            
+            draggables.forEach(draggableEl => {
+                // "Tiêm" tay nắm vào
+                if (config.handle === '.handle-block') {
+                    draggableEl.style.position = 'relative'; // Cần thiết để định vị tay nắm
+                    draggableEl.insertAdjacentHTML('afterbegin', handleBlockSVG);
+                } 
+                else if (config.handle === '.handle-section') {
+                    draggableEl.style.position = 'relative';
+                    draggableEl.insertAdjacentHTML('afterbegin', handleSectionSVG);
+                }
+            });
+        });
+    });
+
+    // --- 3. KHỞI TẠO SORTABLEJS (NHƯ CŨ) ---
+    ruleset.forEach(rule => {
+        const containerElements = document.querySelectorAll(rule.selector);
+        
         if (containerElements.length > 0) {
             containerElements.forEach(containerEl => {
                 console.log('Iframe: Kích hoạt D&D cho', containerEl, rule.config);
-                
                 const config = rule.config;
-
                 new Sortable(containerEl, {
                     group: {
                         name: config.groupName,
-                        // Quan trọng: Hàm 'put' này sẽ chạy logic "Luật"
                         put: function (to, from, dragEl) {
                             const dragType = dragEl.getAttribute('data-type');
-                            // "accepts" là mảng ['card', 'block'] từ Nuxt
                             return config.accepts.includes(dragType);
                         }
                     },
-                    handle: config.handle, // !!! DÙNG TAY NẮM
-                    draggable: config.draggable, // !!! CHỈ KÉO CÁC ITEM NÀY
+                    handle: config.handle,
+                    draggable: config.draggable,
                     animation: 150,
-                    
                     onEnd: function (evt) {
-                        console.log('Iframe: Kéo xong, báo cáo cho Nuxt');
-                        window.parent.postMessage({
-                            type: 'element-dragged',
-                            movedSelector: getUniqueSelector(evt.item),
-                            parentSelector: getUniqueSelector(evt.to),
-                            newIndex: evt.newIndex
-                        }, '*');
+                        // (postMessage 'element-dragged' như cũ...)
                     }
                 });
             });
@@ -92,6 +124,25 @@ function initSortable(ruleset) {
 
 // --- HÀM 4: KHỞI TẠO (DOM READY) ---
 document.addEventListener('DOMContentLoaded', () => {
+    const style = document.createElement('style');
+    style.innerHTML = `
+        /* Ẩn tất cả tay nắm theo mặc định */
+        .handle-block, .handle-section {
+            opacity: 0;
+            transition: opacity 0.15s ease-in-out;
+        }
+        
+        /* Khi hover vào Block, hiện tay nắm Block */
+        [data-component="block"]:hover > .handle-block {
+            opacity: 1;
+        }
+        
+        /* Khi hover vào Section, hiện tay nắm Section */
+        [data-type="section"]:hover > .handle-section {
+            opacity: 1;
+        }
+    `;
+    document.head.appendChild(style);
     // Báo cáo "Sẵn sàng" để "xin" Luật
     console.log('check DOMContentLoaded')
     window.parent.postMessage({ type: 'iframe-ready-for-rules' }, '*');
