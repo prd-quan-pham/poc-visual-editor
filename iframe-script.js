@@ -112,7 +112,13 @@ function initSortable(ruleset) {
                     draggable: config.draggable,
                     animation: 150,
                     onEnd: function (evt) {
-                        // (postMessage 'element-dragged' như cũ...)
+                        console.log('Iframe: Kéo xong, báo cáo cho Nuxt');
+                        window.parent.postMessage({
+                            type: 'element-dragged',
+                            movedSelector: getUniqueSelector(evt.item),
+                            parentSelector: getUniqueSelector(evt.to),
+                            newIndex: evt.newIndex
+                        }, '*');
                     }
                 });
             });
