@@ -34,8 +34,8 @@
     </style>
 </head>
 <body>
-
-    <section data-component="container" data-accepts="card" data-type="section" style="position: relative; padding: 10px; border: 2px dashed blue; margin: 10px;">
+    <main data-component="container" data-accepts="section" data-type="main">
+            <section data-component="container" data-accepts="card" data-type="section" style="position: relative; padding: 10px; border: 2px dashed blue; margin: 10px;">
         <h2>Section 1 (Chỉ chấp nhận Card)</h2>
         
         <div data-component="block" data-type="card" style="position: relative; padding: 10px; border: 1px solid #ccc; margin: 5px;">
@@ -55,6 +55,8 @@
             <p>Block chung</p>
         </div>
     </section>
+    </main>
+
 
 
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
