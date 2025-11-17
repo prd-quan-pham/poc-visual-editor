@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trang POC (Text, Img, Link)</title>
+
+</head>
+
+<body>
+
+    <h1>Click vào tôi để sửa (Sửa tại chỗ)</h1>
+    <p>Đây cũng là text sửa tại chỗ.</p>
+    <img src="https://via.placeholder.com/300x100" alt="placeholder">
+    <p>
+        Đây là <a href="/about-us">một link (Click để mở Sidebar)</a>.
+    </p>
+
+    <script>
+        // --- HÀM 1: LẤY SELECTOR DUY NHẤT ---
+        function getUniqueSelector(el) {
+            if (!el || !(el instanceof Element)) return;
+            let path = [];
+            while (el.nodeType === Node.ELEMENT_NODE) {
+                let selector = el.nodeName.toLowerCase();
+                if (el.id) {
+                    selector = '#' + el.id;
+                    path.unshift(selector);
+                    break;
+                } else {
+                    let sib = el, nth = 1;
+                    while (sib = sib.previousElementSibling) {
+                        if (sib.nodeName.toLowerCase() == selector) nth++;
+                    }
+                    if (nth != 1) selector += `:nth-of-type(${nth})`;
+                }
+                path.unshift(selector);
+                el = el.parentNode;
+            }
+            return path.join(' > ');
+        }
+
+        // --- HÀM 2: CÁC HELPER CHO CONTENTEDITABLE (SỬA TEXT TẠI CHỖ) ---
+        function onEditDone(event) {
+            const element = event.target;
+            element.contentEditable = false;
+            element.removeEventListener('keydown', onEditKeydown);
+            element.removeEventListener('blur', onEditDone);
+            const newText = element.innerText; // Lấy text SẠCH
+            window.parent.postMessage({
+                type: 'text-updated',
+                selector: getUniqueSelector(element),
+                newText: newText
+            }, '*');
+        }
+
+        function onEditKeydown(event) {
+            if (event.key === 'Enter' || event.key === 'Escape') {
+                event.preventDefault();
+                event.target.blur(); // Trigger 'blur'
+            }
+        }
+
+        // --- HÀM 3: LISTENER 'CLICK' (ĐƠN GIẢN HÓA) ---
+        document.addEventListener('click', (event) => {
+
+            // --- CHẾ ĐỘ TƯƠNG TÁC (CTRL+CLICK) ---
+            if (event.ctrlKey || event.metaKey) {
+                console.log('Iframe: Chế độ Interact, cho phép sự kiện.');
+                return; // Không làm gì, cho phép modal mở
+            }
+
+            // Ngăn chặn tất cả các hành vi khác
+            event.preventDefault();
+            event.stopPropagation();
+
+            // --- TÌM TARGET (X-RAY VISION) ---
+            const elements = document.elementsFromPoint(event.clientX, event.clientY) || [event.target];
+            const target = elements[0];
+
+            // Tìm các đối tượng ưu tiên
+            const image = target.closest('IMG');
+            const link = target.closest('A');
+            // Tìm text (NHƯNG KHÔNG PHẢI LÀ LINK)
+            const textBlock = target.closest('P, H1, H2, H3, H4, H5, H6, SPAN');
+
+            // --- ROUTER (ĐỊNH TUYẾN) HÀNH ĐỘNG ---
+
+            // ƯU TIÊN 1: Click vào ẢNH (IMG)
+            if (image) {
+                console.log('Iframe: Click vào ẢNH. Báo cáo...');
+                window.parent.postMessage({
+                    type: 'element-clicked',
+                    selector: getUniqueSelector(image),
+                    tagName: 'IMG',
+                }, '*');
+                return;
+            }
+
+            // ƯU TIÊN 2: Click vào LINK (A)
+            if (link) {
+                console.log('Iframe: Click vào LINK. Báo cáo...');
+                window.parent.postMessage({
+                    type: 'element-clicked',
+                    selector: getUniqueSelector(link),
+                    tagName: 'A',
+                }, '*');
+                return;
+            }
+
+            // ƯU TIÊN 3: Click vào TEXT (P, H1...)
+            if (textBlock) {
+                console.log('Iframe: Chế độ Sửa Text', textBlock);
+                textBlock.contentEditable = 'plaintext-only';
+                textBlock.focus();
+                textBlock.addEventListener('blur', onEditDone, { once: true });
+                textBlock.addEventListener('keydown', onEditKeydown);
+                return;
+            }
+
+            // Nếu click ra ngoài (ví dụ: BODY)
+            console.log('Iframe: Click ra ngoài, bỏ chọn.');
+            window.parent.postMessage({ type: 'element-clicked', selector: null }, '*');
+
+        }, true); // Dùng Capture Phase
+
+        // --- HÀM 4: LISTENER NHẬN LỆNH TỪ NUXT ---
+        window.addEventListener('message', (event) => {
+            // (Sau này bạn NÊN kiểm tra event.origin)
+
+            const data = event.data;
+
+            // --- NHẬN "PING" (SẴN SÀNG) TỪ PARENT ---
+            if (data.type === 'parent-ready') {
+                console.log('Iframe: Nhận được "PING" từ Parent, gửi "PONG" (ready) LÊN.');
+                // Đổi tên message, vì chúng ta không "ready-for-rules" nữa
+                window.parent.postMessage({ type: 'iframe-ready' }, '*');
+            }
+
+            // (Không còn logic 'init-drag-rules' nữa)
+        });
+    </script>
+
+</body>
+
+</html>
